@@ -85,7 +85,44 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.3
+    container_name: saga-elasticsearch
+    environment:
+      - discovery.type=single-node
+      # Local development only - do not disable security in production
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.17.3
+    container_name: saga-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.17.3
+    container_name: saga-filebeat
+    user: root
+    command: [ "filebeat", "-e", "--strict.perms=false" ]
+    volumes:
+      - ./monitoring/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./order-service/logs:/var/log/order-service:ro
+      - filebeat-data:/usr/share/filebeat/data
+    depends_on:
+      - elasticsearch
 volumes:
   order-postgres-data:
   payment-postgres-data:
   inventory-postgres-data:
+  elasticsearch-data:
+  filebeat-data:
